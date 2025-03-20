@@ -18,6 +18,16 @@ class msg:
     data: str
 
 
+def checksum(b: bytes) -> int:
+    # Loop over the bytes in steps of 2
+    Sum = 0
+    for i in range(0, len(b), 2):
+        chunk = b[i : i + 2]
+        value = int.from_bytes(chunk, byteorder="big")
+        Sum += value
+    return Sum % 65536
+
+
 class Host:
     def __init__(self, to_layer3: Callable[[Packet, int], None]):
         self.to_layer3 = to_layer3
@@ -33,7 +43,9 @@ class Host:
         base = 0
 
         while base < len(encoded_msg):
-            pkt = Packet(payload=encoded_msg[base : base + packet_size])
+            t = encoded_msg[base : base + packet_size]
+
+            pkt = Packet(payload=t, checksum=checksum(t))
             self.to_layer3(pkt, host_num)
             base += packet_size
 
