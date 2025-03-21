@@ -2,7 +2,11 @@
 from dataclasses import dataclass, field
 from typing import Callable
 
+import random
+
 packet_size = 20
+corruption_prob: float = 0.2
+loss_prob: float = 0.1
 
 
 @dataclass
@@ -18,7 +22,7 @@ class msg:
     data: str
 
 
-def checksum(b: bytes) -> int:
+def bytes_sum(b: bytes) -> int:
     # Loop over the bytes in steps of 2
     Sum = 0
     for i in range(0, len(b), 2):
@@ -28,6 +32,22 @@ def checksum(b: bytes) -> int:
     return Sum % 65536
 
 
+def checksum(b: bytes, Sum: int):
+    return (bytes_sum(b) + Sum) == 65535
+
+
+def randomly_corrupt(b: bytes) -> bytes:
+    b_arr = bytearray(b)
+    total_bits = len(b_arr) * 8
+
+    bit_to_flip = random.randint(0, total_bits)
+    byte_index = (bit_to_flip // 8) - 1
+    bit_pos = bit_to_flip % 8
+    b_arr[byte_index] ^= 1 << bit_pos
+
+    return bytes(b_arr)
+
+
 class Host:
     def __init__(self, to_layer3: Callable[[Packet, int], None]):
         self.to_layer3 = to_layer3
@@ -35,6 +55,9 @@ class Host:
 
     def input(self, pkt: Packet):  # Called when packet is received from layer 3
         print(f"Received: {pkt.payload}")
+
+        if not checksum(pkt.payload, pkt.checksum):
+            print("Checksum failed")
         return
 
     def output(self, msg: str, host_num: int):  # Called by layer 5
@@ -45,7 +68,7 @@ class Host:
         while base < len(encoded_msg):
             t = encoded_msg[base : base + packet_size]
 
-            pkt = Packet(payload=t, checksum=checksum(t))
+            pkt = Packet(payload=t, checksum=bytes_sum(t) ^ 0xFFFF)
             self.to_layer3(pkt, host_num)
             base += packet_size
 
@@ -66,6 +89,10 @@ class simulator:
 
     def layer3_send(self, pkt: Packet, host_num: int):
         h = self.hosts[host_num]
+        if random.random() < loss_prob:  # Simulate packet loss
+            return
+        if random.random() < corruption_prob:  # Simulate packet corruption
+            pkt.payload = randomly_corrupt(pkt.payload)
         if h:
             h.input(pkt)
 
@@ -79,7 +106,9 @@ def main():
     s.register(host1, 1)
     s.register(host2, 2)
 
-    with open("alice.txt", "r") as file:
+    with open(
+        "/Users/kurtng/Documents/computer_networking/chapter_03/alice.txt", "r"
+    ) as file:
         message = file.read()
         host1.output(message, 2)
     return
