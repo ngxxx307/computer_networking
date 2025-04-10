@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h> // For EXIT_SUCCESS and EXIT_FAILURE
 #include <string.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #define DATA_LENGTH 20 // Maximum characters to read per line (including newline and null terminator)
 
@@ -15,15 +17,12 @@ struct pkt
     unsigned int acknum;
     unsigned int checksum;
     char payload[DATA_LENGTH];
+    bool ack;
 };
 
-struct sender
+struct client
 {
     int seq;
-};
-
-struct receiver
-{
     int ack;
 };
 
@@ -41,11 +40,30 @@ u_int16_t get_checksum(struct pkt *packet)
     return sum ^ 0xFF;
 };
 
-void to_layer3() {
-};
+void input(struct client *c, struct pkt *packet)
+{
+}
+
+void to_layer3(struct client *receiver, struct pkt *packet)
+{
+}
+
+void to_layer5()
+{
+}
+
+void *init_sender()
+{
+}
+
+void *init_receiver()
+{
+}
 
 int main()
 {
+    pthread_t threadA, threadB;
+
     FILE *filePointer;                  // Declare a file pointer
     char lineBuffer[DATA_LENGTH];       // Buffer to store each line read
     const char *filename = "alice.txt"; // The name of the file to read
@@ -59,6 +77,20 @@ int main()
         perror("Error opening file");                           // Print the system error message (e.g., "No such file or directory")
         fprintf(stderr, "Could not open file: %s\n", filename); // Print our own message to standard error
         return EXIT_FAILURE;                                    // Exit the program indicating failure
+    }
+
+    struct client *sender = malloc(sizeof(struct client));
+    sender->ack = 0;
+    sender->seq = 0;
+
+    struct client *receiver = malloc(sizeof(struct client));
+    receiver->ack = 0;
+    receiver->seq = 0;
+
+    while (fgets(lineBuffer, sizeof(lineBuffer), filePointer) != NULL)
+    {
+        printf("%s", lineBuffer);
+        to_layer3();
     }
 
     struct pkt *Packet = malloc(sizeof(struct pkt));
